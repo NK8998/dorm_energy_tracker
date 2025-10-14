@@ -1,0 +1,77 @@
+# ========================
+# Build output
+# ========================
+*.obj
+*.exe
+*.dll
+*.lib
+*.exp
+*.ilk
+*.pdb
+*.idb
+*.ipdb
+*.iobj
+*.log
+*.sdf
+*.tlog
+*.lastbuildstate
+*.cache
+*.db
+
+# Intermediate folders
+Debug/
+Release/
+x64/
+x86/
+build/
+out/
+bin/
+obj/
+
+# ========================
+# Visual Studio / IDE
+# ========================
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.opensdf
+*.VC.db
+*.VC.VC.opendb
+
+# ========================
+# CMake
+# ========================
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.cmake
+
+# ========================
+# Dependency artifacts
+# ========================
+external/freetype/build/
+external/glfw/build/
+external/glad/build/
+external/imgui/examples/
+external/imgui/misc/debuggers/
+*.recipe
+
+# ========================
+# OS / misc
+# ========================
+.DS_Store
+Thumbs.db
+*.tmp
+*.bak
+
+# ========================
+# Optional: include your prebuilt libs but not source builds
+# ========================
+# Keep headers, ignore compiled binaries
+# !external/freetype/include/
+# !external/imgui/
+# !external/glad/
+# !external/glfw/include/
