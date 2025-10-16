@@ -11,6 +11,10 @@
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_opengl3.h"
 #include <stdio.h>
+#include <vector>
+#include <string>
+#include <stdexcept>
+#include <iostream>
 //#define GL_SILENCE_DEPRECATION
 //#if defined(IMGUI_IMPL_OPENGL_ES2)
 //#include <GLES2/gl2.h>
@@ -29,9 +33,116 @@
 #include "../libs/emscripten/emscripten_mainloop_stub.h"
 #endif
 
+struct FormInput {
+    char label[128];
+    char name[128];
+    char buff[256];
+    double  value;
+    bool hasError = false;
+    char error[128];
+    char type[128];
+};
+
+struct Appliance {
+    char name[128];
+    double power;
+    double hours;
+    double days;
+    double totalPower;
+
+    Appliance(const char* n, double p, double h, double d, double t) : power(p), hours(h), days(d), totalPower(t) {
+        strcpy_s(name, sizeof(name), n);
+    }
+};
+
+struct Submissions {
+    char name[128];
+    double totalCost;
+    double totalEnergy;
+    std::vector<Appliance> appliances;
+};
+
+static char name[128];
+bool isEditing = false;
+bool isNameSet = false;
+
+std::vector<FormInput> formFields;
+std::vector<Appliance> appliances;
+
 static void glfw_error_callback(int error, const char* description)
 {
     fprintf(stderr, "GLFW Error %d: %s\n", error, description);
+}
+
+void initializeForm() {
+    isNameSet = false;
+    name[0] = '\0';
+
+    formFields = {
+        {"Appliance name", "name", "", 0, false, "", "text"},
+        {"Power", "power", "", 0, false, "", "number"},
+        {"Hours/day", "hours", "", 0, false, "", "number"},
+        {"Days used","days", "", 0, false, "", "number"}
+    };
+    appliances.clear();
+}
+
+void handleError(const char* msg, FormInput &field) {
+    field.hasError = true;
+    char source[128];
+    strcpy_s(source, msg);
+    strcat_s(source, field.label);
+    strcpy_s(field.error, source);
+}
+
+void addAppliance() {
+    char name[128] = "";
+    double power = NULL;
+    double hours = NULL;
+    double days = NULL;
+
+    for (auto& field : formFields)
+    {
+        field.hasError = false;
+        field.error[0] = '\0';
+
+        if (strcmp("number", field.type) == 0) 
+        {
+
+            if (strcmp(field.name, "power") == 0)
+                power = field.value;
+            if (strcmp(field.name, "hours") == 0)
+                hours = field.value;
+            if (strcmp(field.name, "days") == 0)
+                days = field.value;
+            
+        }
+        else if (strcmp("text", field.type) == 0) 
+        {
+            if (field.buff[0] == '\0')
+            {
+                handleError("please enter a value for ", field);
+            }
+            if (strcmp("name", field.name) == 0) {
+                strcpy_s(name, field.buff);
+            }
+        }
+   
+    }
+
+    if (!power || !hours || !days || name[0] == '\0') return;
+
+    double totalEnergy = power * hours * days;
+
+    double totalCost = totalEnergy * 25;
+
+    appliances.emplace_back(name, power, hours, days, totalEnergy);
+
+    printf("total energy: %f \n total cost: %f", totalEnergy, totalCost);
+}
+
+void handleSubmit() {
+
 }
 
 // Main code
@@ -118,10 +229,12 @@ int main(int, char**)
     //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf");
     //IM_ASSERT(font != nullptr);
 
-    // Our state
-    bool show_demo_window = true;
-    bool show_another_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
+    float f = 0.0f;
+    int counter = 0;
+
+    initializeForm();
 
     // Main loop
 #ifdef __EMSCRIPTEN__
@@ -150,43 +263,156 @@ int main(int, char**)
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-        if (show_demo_window)
-            ImGui::ShowDemoWindow(&show_demo_window);
+        ImGui::Begin("Dorm energy tracker");                          // Create a window called "Hello, world!" and append into it.
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
 
-        // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
+        if (!isNameSet || isEditing) 
         {
-            static float f = 0.0f;
-            static int counter = 0;
+            ImGui::Spacing();
+            ImGui::SeparatorText("Enter your Name");
+            ImGui::Spacing();
 
-            ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+            if (ImGui::BeginTable("NameTable", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_BordersInnerV))
+            {
+                ImGui::TableNextRow();
 
-            ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-            ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-            ImGui::Checkbox("Another Window", &show_another_window);
+                ImGui::TableSetColumnIndex(0);
+                ImGui::AlignTextToFramePadding();
+                ImGui::Text("Name");
 
-            ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-            ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
+                ImGui::SetNextItemWidth(250);
+                ImGui::TableSetColumnIndex(1);
+                ImGui::InputText("##", name, IM_ARRAYSIZE(name));
 
-            if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-                counter++;
+                ImGui::TableSetColumnIndex(2);
+                if (ImGui::Button("Submit", ImVec2(90, 25))) {
+                    isNameSet = true;
+                    isEditing = false;
+                }
+
+                ImGui::EndTable();
+            }
+           
+        }
+        else 
+        {
+            ImGui::Spacing();
+            ImGui::SeparatorText("Appliance Details");
+            ImGui::Spacing();
+
+            ImGui::Text("%s's Power Usage", name);
+            ImGui::SameLine(ImGui::GetContentRegionAvail().x - 120); 
+            if (ImGui::Button(isEditing ? "Done" : "Edit", ImVec2(110, 25)))
+            {
+                isEditing = !isEditing;
+            }
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            if (ImGui::BeginTable("FormTable", 2, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_BordersInnerV))
+            {
+                for (auto& field : formFields)
+                {
+                    ImGui::TableNextRow();
+
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::AlignTextToFramePadding();
+                    ImGui::Text("%s", field.label);
+
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::PushID(field.label);
+                    ImGui::SetNextItemWidth(250); 
+
+                    if (strcmp(field.type, "number") == 0)
+                        ImGui::InputDouble("##input", &field.value, 0, 0, "%.2f");
+                    else
+                        ImGui::InputText("##input", field.buff, IM_ARRAYSIZE(field.buff));
+
+                    ImGui::PopID();
+
+                    if (field.hasError)
+                    {
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 80, 80, 255));
+                        ImGui::TextWrapped("%s", field.error);
+                        ImGui::PopStyleColor();
+                    }
+                }
+                ImGui::EndTable();
+            }
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            ImGui::BeginGroup();
+            if (ImGui::Button("Add Appliance", ImVec2(150, 30)))
+            {
+                addAppliance();
+            }
             ImGui::SameLine();
-            ImGui::Text("counter = %d", counter);
+            if (ImGui::Button("New Student", ImVec2(150, 30)))
+            {
+                initializeForm();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Submit", ImVec2(150, 30)))
+            {
+                handleSubmit();
+            }
+            ImGui::EndGroup();
 
-            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-            ImGui::End();
+
+            if (ImGui::BeginTable("Appliances", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
+            {
+                ImGui::TableSetupColumn("Name");
+                ImGui::TableSetupColumn("Power (w)");
+                ImGui::TableSetupColumn("Hours/Day");
+                ImGui::TableSetupColumn("Days Used");
+                ImGui::TableSetupColumn("Total Power");
+                ImGui::TableHeadersRow();
+
+                for (const auto& a : appliances) 
+                {
+                    ImGui::TableNextRow();
+
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::TextUnformatted(a.name);
+
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.2f", a.power);
+
+                    ImGui::TableSetColumnIndex(2);
+                    ImGui::Text("%.2f", a.hours);
+
+                    ImGui::TableSetColumnIndex(3);
+                    ImGui::Text("%.2f", a.days);
+
+                    ImGui::TableSetColumnIndex(4);
+                    ImGui::Text("%.2f", a.totalPower);
+                }
+
+                ImGui::EndTable();
+
+            }
+
         }
 
-        // 3. Show another simple window.
-        if (show_another_window)
-        {
-            ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-            ImGui::Text("Hello from another window!");
-            if (ImGui::Button("Close Me"))
-                show_another_window = false;
-            ImGui::End();
-        }
+        //ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
 
+        //ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+        //ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
+
+        //if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+        //    counter++;
+        //ImGui::SameLine();
+        //ImGui::Text("counter = %d", counter);
+
+        ImGui::End();
+        
         // Rendering
         ImGui::Render();
         int display_w, display_h;
