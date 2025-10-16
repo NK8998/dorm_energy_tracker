@@ -27,6 +27,7 @@ build/
 out/
 bin/
 obj/
+external/
 
 # ========================
 # Visual Studio / IDE
