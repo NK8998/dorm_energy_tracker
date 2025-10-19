@@ -55,11 +55,15 @@ struct Appliance {
     }
 };
 
-struct Submissions {
+struct Submission {
     char name[128];
     double totalCost;
     double totalEnergy;
     std::vector<Appliance> appliances;
+
+    Submission(const char* n, double tc, double te, std::vector<Appliance> &appliances): totalCost(tc), totalEnergy(te) {
+        strcpy_s(name, sizeof(name), n);
+    }
 };
 
 static char name[128];
@@ -68,6 +72,7 @@ bool isNameSet = false;
 
 std::vector<FormInput> formFields;
 std::vector<Appliance> appliances;
+std::vector<Submission> submissions;
 
 static void glfw_error_callback(int error, const char* description)
 {
@@ -142,7 +147,16 @@ void addAppliance() {
 }
 
 void handleSubmit() {
+    double totalPower = 0.0;
 
+    for (Appliance &appliance : appliances) {
+        totalPower += appliance.totalPower;
+    }
+
+    double totalCost = totalPower * 25;
+
+    submissions.emplace_back(name, totalCost, totalPower, appliances);
+    initializeForm();
 }
 
 // Main code
@@ -412,7 +426,37 @@ int main(int, char**)
         //ImGui::Text("counter = %d", counter);
 
         ImGui::End();
-        
+
+        if (submissions.size() > 0) {
+            ImGui::Begin("Students summary");
+            ImGui::Text("Summary for students");
+
+            if (ImGui::BeginTable("Submissions Table", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_BordersInnerV))
+            {
+                ImGui::TableSetupColumn("Name");
+                ImGui::TableSetupColumn("Power (w)");
+                ImGui::TableSetupColumn("Cost/KE");
+                ImGui::TableHeadersRow();
+
+                for (Submission submission : submissions) {
+                    ImGui::TableNextRow();
+
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text(submission.name);
+
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%.2f", submission.totalEnergy);
+
+                    ImGui::TableSetColumnIndex(2);
+                    ImGui::Text("%.2f", submission.totalCost);
+                }
+
+                ImGui::EndTable();
+            }
+
+            ImGui::End();
+        }
+       
         // Rendering
         ImGui::Render();
         int display_w, display_h;
